@@ -25,7 +25,9 @@ def getPageListingsAndWriteToFile( pageCount ):
 
 	for url in postUrls:
 		attemptsAtPage = 0
-		while attemptsAtPage < 5:
+		global csvLineBlank
+		csvLine = csvLineBlank
+		while attemptsAtPage < 3:
 			csvLine["URL"] = url
 			webDriver.get(url)
 			time.sleep(1)
@@ -39,6 +41,14 @@ def getPageListingsAndWriteToFile( pageCount ):
 				pass
 			try:
 				csvLine["Price"] = webDriver.find_element_by_xpath("//span[@class='price']").text
+			except NoSuchElementException:
+				pass
+			try:
+				csvLine["Full Title"] = webDriver.find_element_by_xpath("//span[@class='postingtitletext']//span[@id='titletextonly'").text
+			except NoSuchElementException:
+				pass
+			try:
+				csvLine["City"] = webDriver.find_element_by_xpath("//span[@class='postingtitletext']/small").text
 			except NoSuchElementException:
 				pass
 			try:
@@ -89,19 +99,19 @@ def getPageListingsAndWriteToFile( pageCount ):
 		if attemptsAtPage == 3:
 			print("Failed to retrieve contact information for URL: "+url)
 			failedURLs.write(url+"\n")
-		else:
-			for value in csvLine.values():
-				outputFile.write(value+',')
-			outputFile.write("\n")
+
+		for value in csvLine.values():
+			outputFile.write(value+',')
+		outputFile.write("\n")
 
 	webDriver.close()
 
 failedURLs = open("failedListings.txt", 'w', encoding='utf-8')
 outputFile = open("listings.csv", 'w', encoding='utf-8')
-csvLine = {"Status":"", "URL":"", "Bedrooms":"", "Bathrooms":"", "Price":"", "SqF":"", "Address":"", "PhoneNumber":"", "email":""}
+csvLineBlank = {"Status":"", "Full Title":"", "URL":"", "Bedrooms":"", "Bathrooms":"", "Price":"", "SqF":"","City":"", "Address":"", "PhoneNumber":"", "email":""}
 
 # Write the first line of the file
-for entry in csvLine:
+for entry in csvLineBlank:
 	outputFile.write(entry+",")
 outputFile.write("\n")
 
