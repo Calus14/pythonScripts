@@ -10,7 +10,14 @@ def getCraigsListURLs(webDriver, pageNumber = 0, url = "https://chicago.craigsli
 	postingUrls = []
 	url = url +"?s="+str(pageNumber*120)
 	print("Getting listings for "+url)
-	webDriver.get(url)
+	attemptsOfLoadingPage = 0
+	notLoadedWebPage = True
+	while attemptsOfLoadingPage < 3 and notLoadedWebPage:
+			try:
+				webDriver.get(url)
+				notLoadedWebPage = False
+			except:
+				attemptsOfLoadingPage  = attemptsOfLoadingPage + 1
 	allListings = webDriver.find_elements_by_xpath("//ul[@class='rows']/li/a")
 	for listing in allListings:
 		postingUrls.append(listing.get_attribute("href"))
@@ -18,6 +25,12 @@ def getCraigsListURLs(webDriver, pageNumber = 0, url = "https://chicago.craigsli
 	print("got the list of urls\n")
 	return postingUrls
 
+#static variable at main name space to see if we are hitting sets
+titleSet = set()
+addressSet = set()
+bedBathPriceSet = set()
+emailSet = set()
+phoneSet = set()
 def getPageListingsAndWriteToFile( pageCount ):
 	webDriver = webdriver.Chrome()
 
@@ -28,6 +41,7 @@ def getPageListingsAndWriteToFile( pageCount ):
 		global csvLineBlank
 		csvLine = csvLineBlank
 		while attemptsAtPage < 3:
+			attemptsAtPage = attemptsAtPage + 1
 			csvLine["URL"] = url
 			webDriver.get(url)
 			time.sleep(1)
@@ -60,7 +74,11 @@ def getPageListingsAndWriteToFile( pageCount ):
 			except NoSuchElementException:
 				pass
 
-			replyButton = webDriver.find_element_by_xpath("//button[@class='reply-button js-only']")
+			try:
+				replyButton = webDriver.find_element_by_xpath("//button[@class='reply-button js-only']")
+			except:
+				#For whatever reason 1 in 1000 pages just dont have a reply button?
+				continue
 			replyButton.click()
 			time.sleep(1)
 
@@ -68,7 +86,6 @@ def getPageListingsAndWriteToFile( pageCount ):
 			try:
 				errorElement = webDriver.find_element_by_xpath("//div[@class='lbcontent']")
 				if "An error has occurred" in errorElement.text:
-					attemptsAtPage = attemptsAtPage + 1
 					continue
 			except NoSuchElementException:
 				pass
@@ -104,10 +121,19 @@ def getPageListingsAndWriteToFile( pageCount ):
 			outputFile.write(value+',')
 		outputFile.write("\n")
 
+		duplicateCatches.write("Duplicate title: " + csvLine["Full Title"]) if csvLine["Full Title"] in titleSet else titleSet.add(csvLine["Full Title"])
+		duplicateCatches.write("Duplicate Address: " + csvLine["Address"]) if csvLine["Address"] in addressSet else addressSet.add(csvLine["Address"])
+		bedPathPriceTuple = (csvLine["Bedrooms"], csvLine["Bathrooms"], csvLine["Price"])
+		duplicateCatches.write("Duplicate bedPathPriceTuple: " + str(bedPathPriceTuple)) if bedPathPriceTuple in bedBathPriceSet else bedBathPriceSet.add(bedPathPriceTuple)
+		duplicateCatches.write("Duplicate email: " + csvLine["email"]) if csvLine["email"] in emailSet else emailSet.add(csvLine["email"])
+		duplicateCatches.write("Duplicate title: " + csvLine["PhoneNumber"]) if csvLine["PhoneNumber"] in phoneSet else phoneSet.add(csvLine["PhoneNumber"])
+
 	webDriver.close()
 
 failedURLs = open("failedListings.txt", 'w', encoding='utf-8')
 outputFile = open("listings.csv", 'w', encoding='utf-8')
+duplicateCatches = open("duplicates.txt", 'w', encoding='utf-8')
+
 csvLineBlank = {"Status":"", "Full Title":"", "URL":"", "Bedrooms":"", "Bathrooms":"", "Price":"", "SqF":"","City":"", "Address":"", "PhoneNumber":"", "email":""}
 
 # Write the first line of the file
@@ -119,8 +145,8 @@ outputFile.write("\n")
 url = "https://chicago.craigslist.org/search/apa"
 webScrappingFutures = []
 pageCount = 0
-pagesToGather =5
-maxThreads = 1
+pagesToGather = 30
+maxThreads = 2
 
 runningThreads = []
 while(pageCount < pagesToGather):
@@ -135,5 +161,6 @@ while(pageCount < pagesToGather):
 
 outputFile.close()
 failedURLs.close()
+duplicateCatches.close()
 
 print("wrote the file")
